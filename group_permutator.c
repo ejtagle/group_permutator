@@ -140,7 +140,7 @@ void load_wordgroups(list_t** wordgroups, cfg_t* cfg)
 					bool alllower = true;
 					char* p = pf;
 					while (1){
-						char c = *p++;
+						char c = *p;
 						if (!c) break;
 						if (isalpha(c)) {
 							if (!isupper(c)) 
@@ -150,6 +150,7 @@ void load_wordgroups(list_t** wordgroups, cfg_t* cfg)
 							if ((p == pf && !isupper(c)) || (p!=pf && !islower(c)))
 								capitalized=false;
 						}
+						p++;
 					}
 
 					// Store word and its attributes
@@ -519,31 +520,31 @@ int main(int argc, char** argv)
 		char* arg = argv[pos];
 		if (arg[0] == '-' && arg[1] == '-') {
 			// Option
-			if (strncmp(arg + 2, "--max-word-sz=", 14) == 0)
-				cfg.MAX_WORD_SIZE = atoi(arg + 2 + 14);
+			if (strncmp(arg + 2, "max-word-sz=", 12) == 0)
+				cfg.MAX_WORD_SIZE = atoi(arg + 2 + 12);
 			else
-				if (strncmp(arg + 2, "--max-group-sz=", 15) == 0)
-					cfg.MAX_WORD_GROUP_SIZE = atoi(arg + 2 + 15);
+				if (strncmp(arg + 2, "max-group-sz=", 13) == 0)
+					cfg.MAX_WORD_GROUP_SIZE = atoi(arg + 2 + 13);
 				else
-					if (strncmp(arg + 2, "--max-sep-sz=", 13) == 0)
-						cfg.MAX_SEPARATOR_SIZE = atoi(arg + 2 + 13);
+					if (strncmp(arg + 2, "max-sep-sz=", 11) == 0)
+						cfg.MAX_SEPARATOR_SIZE = atoi(arg + 2 + 11);
 					else
-						if (strncmp(arg + 2, "--min-pw-sz=", 12) == 0)
-							cfg.MIN_PASSWORD_SIZE = atoi(arg + 2 + 12);
+						if (strncmp(arg + 2, "min-pw-sz=", 10) == 0)
+							cfg.MIN_PASSWORD_SIZE = atoi(arg + 2 + 10);
 						else
-							if (strncmp(arg + 2, "--max-pw-sz=", 12) == 0)
-								cfg.MAX_PASSWORD_SIZE = atoi(arg + 2 + 12);
+							if (strncmp(arg + 2, "max-pw-sz=", 10) == 0)
+								cfg.MAX_PASSWORD_SIZE = atoi(arg + 2 + 10);
 							else
-								if (strcmp(arg + 2, "--uc") == 0)
+								if (strcmp(arg + 2, "uc") == 0)
 									cfg.uppercase_version = true;
 								else
-									if (strcmp(arg + 2, "--lc") == 0)
+									if (strcmp(arg + 2, "lc") == 0)
 										cfg.lowercase_version = true;
 									else
-										if (strcmp(arg + 2, "--cc") == 0)
+										if (strcmp(arg + 2, "cc") == 0)
 											cfg.capitalize_version = true;
 										else
-											if (strcmp(arg + 2, "--tc") == 0)
+											if (strcmp(arg + 2, "tc") == 0)
 												cfg.toggle_case_version = true;
 											else {
 												fprintf(stderr,"ERROR: Unsupported option '%s'\n", arg);
