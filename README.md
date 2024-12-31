@@ -14,6 +14,7 @@ options
 	--max-sep-sz=XX    Maximum separator size, in characters, default: 64
 	--min-pw-sz=XX     Minimum password length to generate, in characters, default: 8
 	--max-pw-sz=XX     Maximum password length to generate, in characters, default: 16
+	--max-depth=XX   \tMaximum count of groups to be used for each password, default: 64
 	--uc               Also try the same words in uppercase, default: do not
 	--lc               Also try the same words in lowercase, default: do not
 	--cc               Also try the same words capitalized,  default: do not

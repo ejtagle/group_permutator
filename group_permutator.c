@@ -41,6 +41,7 @@ typedef struct {
 	int MAX_SEPARATOR_SIZE;
 	int MIN_PASSWORD_SIZE;
 	int MAX_PASSWORD_SIZE;
+	int MAX_DEPTH;
 
 	int uppercase_version:1;
 	int lowercase_version:1;
@@ -331,7 +332,90 @@ bool str_toggle_case(char* dst, const char* src)
 	return changed;
 }
 
-void recurse_wordgroups(cfg_t* cfg,const int password_pos)
+extern void recurse_wordgroups(cfg_t* cfg, const int password_pos, const int depth);
+
+void try_all_word_spellings(cfg_t* cfg, char* password, int pos, int len, const word_t* word, int word_length, const int depth)
+{
+	// append the word to the current prefix
+	memcpy(&password[pos], word->str, word_length + 1);
+
+	// Print generated password
+	if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
+		fprintf(stdout, "%s\n", password);
+
+	// Recurse generation
+	recurse_wordgroups(cfg, pos + word_length, depth + 1);
+
+	// If word is not already capitalized, and asked to capitalize it.. and it is
+	// possible to capitalize...
+	if (!word->capitalized && cfg->capitalize_version) {
+
+		// Capitalize 1st letter
+		char org_char = password[pos];
+		char capitalized = toupper(password[pos]);
+		if (capitalized != org_char) {
+
+			// And redo recursion
+			password[pos] = capitalized;
+
+			// Print generated password
+			if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
+				printf("%s\n", password);
+
+			// Recurse generation
+			recurse_wordgroups(cfg, pos + word_length, depth + 1);
+		}
+	}
+
+	// If word is not already uppercase, and asked to uppercase it.. and it is
+	// possible to uppercase...
+	if (!word->uppercased && cfg->uppercase_version) {
+
+		// Uppercase
+		if (str_to_upper(&password[pos], word->str)) {
+
+			// Print generated password
+			if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
+				printf("%s\n", password);
+
+			// Recurse generation
+			recurse_wordgroups(cfg, pos + word_length, depth + 1);
+		}
+	}
+
+	// If word is not already lowercase, and asked to lowercase it.. and it is
+	// possible to lowercase...
+	if (!word->lowercased && cfg->lowercase_version) {
+
+		// Lowercase
+		if (str_to_lower(&password[pos], word->str)) {
+
+			// Print generated password
+			if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
+				printf("%s\n", password);
+
+			// Recurse generation
+			recurse_wordgroups(cfg, pos + word_length, depth + 1);
+		}
+	}
+
+	// If asked to toggle case
+	if (cfg->toggle_case_version) {
+
+		// Toggle case
+		if (str_toggle_case(&password[pos], word->str)) {
+
+			// Print generated password
+			if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
+				printf("%s\n", password);
+
+			// Recurse generation
+			recurse_wordgroups(cfg, pos + word_length, depth + 1);
+		}
+	}
+}
+
+void recurse_wordgroups(cfg_t* cfg,const int password_pos, const int depth)
 {
 	char* password = cfg->password;
 	const list_t* wordgroups = cfg->wordgroups;
@@ -364,98 +448,33 @@ void recurse_wordgroups(cfg_t* cfg,const int password_pos)
 				// Calculate the password length that will be generated at this level
 				int password_length = password_pos + word_length;
 
-				// Only if the password length does not exceed the maximum allowed
-				if (password_length <= cfg->MAX_PASSWORD_SIZE) {
+				// Only if the password length does not exceed the maximum allowed and the depth
+				// does not exceed what was specified
+				if (password_length <= cfg->MAX_PASSWORD_SIZE && depth <= cfg->MAX_DEPTH) {
 
-					// Iterate through all separators...
-					for (int sepidx = 0; sepidx < cfg->separators->count; ++sepidx) {
-						const separator_t* sep = (const separator_t *)cfg->separators->elems[sepidx];
-						
-						// Add the separator
-						memcpy(&password[password_pos], sep->str, sep->len);
+					// Iterate through all separators... Except in the first word
+					if (depth > 1) {
+						for (int sepidx = 0; sepidx < cfg->separators->count; ++sepidx) {
+							const separator_t* sep = (const separator_t*)cfg->separators->elems[sepidx];
 
+							// Add the separator
+							memcpy(&password[password_pos], sep->str, sep->len);
+
+							// Compute the word position
+							int pos = password_pos + sep->len;
+							int len = password_length + sep->len;
+
+							// Try all word spellings
+							try_all_word_spellings(cfg, password, pos, len, word, word_length, depth);
+						}
+					}
+					else {
 						// Compute the word position
-						int pos = password_pos + sep->len;
+						int pos = password_pos;
+						int len = password_length;
 
-						// append the word to the current prefix
-						memcpy(&password[pos], word->str, word_length + 1);
-
-						// Print generated password
-						int len = password_length + sep->len;
-						if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
-							fprintf(stdout, "%s\n", password);
-
-						// Recurse generation
-						recurse_wordgroups(cfg, pos + word_length);
-
-						// If word is not already capitalized, and asked to capitalize it.. and it is
-						// possible to capitalize...
-						if (!word->capitalized && cfg->capitalize_version) {
-
-							// Capitalize 1st letter
-							char org_char = password[pos];
-							char capitalized = toupper(password[pos]);
-							if (capitalized != org_char) {
-
-								// And redo recursion
-								password[pos] = capitalized;
-
-								// Print generated password
-								if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
-									printf("%s\n", password);
-
-								// Recurse generation
-								recurse_wordgroups(cfg, pos + word_length);
-							}
-						}
-
-						// If word is not already uppercase, and asked to uppercase it.. and it is
-						// possible to uppercase...
-						if (!word->uppercased && cfg->uppercase_version) {
-
-							// Uppercase
-							if (str_to_upper(&password[pos], word->str)) {
-
-								// Print generated password
-								if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
-									printf("%s\n", password);
-
-								// Recurse generation
-								recurse_wordgroups(cfg, pos + word_length);
-							}
-						}
-
-						// If word is not already lowercase, and asked to lowercase it.. and it is
-						// possible to lowercase...
-						if (!word->lowercased && cfg->lowercase_version) {
-
-							// Lowercase
-							if (str_to_lower(&password[pos], word->str)) {
-
-								// Print generated password
-								if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
-									printf("%s\n", password);
-
-								// Recurse generation
-								recurse_wordgroups(cfg, pos + word_length);
-							}
-						}
-
-						// If asked to toggle case
-						if (cfg->toggle_case_version) {
-
-							// Toggle case
-							if (str_toggle_case(&password[pos], word->str)) {
-
-								// Print generated password
-								if (len >= cfg->MIN_PASSWORD_SIZE && len <= cfg->MAX_PASSWORD_SIZE)
-									printf("%s\n", password);
-
-								// Recurse generation
-								recurse_wordgroups(cfg, pos + word_length);
-							}
-						}
-
+						// Try all word spellings
+						try_all_word_spellings(cfg, password, pos, len, word, word_length, depth);
 					}
 				}
 			}
@@ -477,6 +496,7 @@ void help()
 	fprintf(stderr, "--max-sep-sz=XX  \tMaximum separator size, in characters, default: 64\n");
 	fprintf(stderr, "--min-pw-sz=XX   \tMinimum password length to generate, in characters, default: 8\n");
 	fprintf(stderr, "--max-pw-sz=XX   \tMaximum password length to generate, in characters, default: 16\n");
+	fprintf(stderr, "--max-depth=XX   \tMaximum count of groups to be used for each password, default: 64\n");
 	fprintf(stderr, "--uc             \tAlso try the same words in uppercase, default: do not\n");
 	fprintf(stderr, "--lc             \tAlso try the same words in lowercase, default: do not\n");
 	fprintf(stderr, "--cc             \tAlso try the same words capitalized,  default: do not\n");
@@ -499,6 +519,7 @@ int main(int argc, char** argv)
 	cfg.MIN_PASSWORD_SIZE = 8;
 	cfg.MAX_PASSWORD_SIZE = 16;
 	cfg.MAX_SEPARATOR_SIZE = 64;
+	cfg.MAX_DEPTH = 64;
 	cfg.wordgroups = NULL;
 	cfg.separators = NULL;
 	cfg.uppercase_version = false;
@@ -535,21 +556,24 @@ int main(int argc, char** argv)
 							if (strncmp(arg + 2, "max-pw-sz=", 10) == 0)
 								cfg.MAX_PASSWORD_SIZE = atoi(arg + 2 + 10);
 							else
-								if (strcmp(arg + 2, "uc") == 0)
-									cfg.uppercase_version = true;
+								if (strncmp(arg + 2, "max-depth=", 10) == 0)
+									cfg.MAX_DEPTH = atoi(arg + 2 + 10);
 								else
-									if (strcmp(arg + 2, "lc") == 0)
-										cfg.lowercase_version = true;
+									if (strcmp(arg + 2, "uc") == 0)
+										cfg.uppercase_version = true;
 									else
-										if (strcmp(arg + 2, "cc") == 0)
-											cfg.capitalize_version = true;
+										if (strcmp(arg + 2, "lc") == 0)
+											cfg.lowercase_version = true;
 										else
-											if (strcmp(arg + 2, "tc") == 0)
-												cfg.toggle_case_version = true;
-											else {
-												fprintf(stderr,"ERROR: Unsupported option '%s'\n", arg);
-												return 1;
-											}
+											if (strcmp(arg + 2, "cc") == 0)
+												cfg.capitalize_version = true;
+											else
+												if (strcmp(arg + 2, "tc") == 0)
+													cfg.toggle_case_version = true;
+												else {
+													fprintf(stderr,"ERROR: Unsupported option '%s'\n", arg);
+													return 1;
+												}
 
 		}
 		else
@@ -577,7 +601,7 @@ int main(int argc, char** argv)
 		load_default_separators(&cfg.separators, &cfg);
 
 	// Now, we must generate all permutations of words that are between the specified password lenght
-	recurse_wordgroups(&cfg, 0);
+	recurse_wordgroups(&cfg, 0, 1);
 
 	return 1;
 }
